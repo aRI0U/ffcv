@@ -37,7 +37,7 @@ class Field(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def encode(field, metadata_destination, malloc):
+    def encode(self, destination, field, malloc):
         raise NotImplementedError
 
     @abstractmethod

@@ -15,9 +15,9 @@ from .memory_allocator import MemoryAllocator
 from .types import (TYPE_ID_HANDLER, get_metadata_type, HeaderType,
                     FieldDescType, CURRENT_VERSION, ALLOC_TABLE_TYPE)
 
-
 MIN_PAGE_SIZE = 1 << 21  # 2MiB, which is the most common HugePage size
 MAX_PAGE_SIZE = 1 << 32  # Biggest page size that will not overflow uint32
+
 
 def from_shard(shard, pipeline):
     # We import webdataset here so that it desn't crash if it's not required
@@ -27,6 +27,7 @@ def from_shard(shard, pipeline):
     dataset = WebDataset(shard)
     dataset = pipeline(dataset)
     return dataset
+
 
 def count_samples_in_shard(shard, pipeline):
     #
@@ -58,9 +59,9 @@ def handle_sample(sample, dest_ix, field_names, metadata, allocator, fields):
             if i == 1:
                 raise
 
-def worker_job_webdataset(input_queue, metadata_sm, metadata_type, fields,
-               allocator, done_number, allocations_queue, pipeline):
 
+def worker_job_webdataset(input_queue, metadata_sm, metadata_type, fields,
+                          allocator, done_number, allocations_queue, pipeline):
     metadata = np.frombuffer(metadata_sm.buf, dtype=metadata_type)
     field_names = metadata_type.names
 
@@ -90,10 +91,8 @@ def worker_job_webdataset(input_queue, metadata_sm, metadata_type, fields,
     allocations_queue.put(allocator.allocations)
 
 
-
 def worker_job_indexed_dataset(input_queue, metadata_sm, metadata_type, fields,
-               allocator, done_number, allocations_queue, dataset):
-
+                               allocator, done_number, allocations_queue, dataset):
     metadata = np.frombuffer(metadata_sm.buf, dtype=metadata_type)
     field_names = metadata_type.names
 
@@ -170,10 +169,9 @@ class DatasetWriter():
             # We still write it here to make space for it later
             fp.write(self.header.tobytes())
 
-
             # Writes the information about the fields
             fields_descriptor = np.zeros(len(self.fields),
-                                              dtype=FieldDescType)
+                                         dtype=FieldDescType)
             field_type_to_type_id = {v: k for (k, v) in TYPE_ID_HANDLER.items()}
 
             fieldname_max_len = fields_descriptor[0]['name'].shape[0]
@@ -200,7 +198,6 @@ class DatasetWriter():
                                                       size=total_metadata_size)
 
         self.data_region_start = self.metadata_start + total_metadata_size
-
 
     def _write_common(self, num_samples, queue_content, work_fn, extra_worker_args):
         self.num_samples = num_samples
@@ -264,10 +261,9 @@ class DatasetWriter():
         self.metadata_sm.close()
         self.metadata_sm.unlink()
 
-
     def from_indexed_dataset(self, dataset,
-                              indices: List[int]=None, chunksize=100,
-                              shuffle_indices: bool = False):
+                             indices: List[int] = None, chunksize=100,
+                             shuffle_indices: bool = False):
         """Read dataset from an indexable dataset.
         See https://docs.ffcv.io/writing_datasets.html#indexable-dataset for sample usage.
 
@@ -295,8 +291,7 @@ class DatasetWriter():
         indices: List[int] = list(enumerate(indices))
 
         self._write_common(len(indices), chunks(indices, chunksize),
-                           worker_job_indexed_dataset, (dataset, ))
-
+                           worker_job_indexed_dataset, (dataset,))
 
     def from_webdataset(self, shards: List[str], pipeline: Callable):
         """Read from webdataset-like format.
@@ -316,10 +311,9 @@ class DatasetWriter():
         offsets = np.cumsum([0] + lengths)[:-1]
 
         todos = zip(shards, offsets)
-        self._write_common(total_len, todos, worker_job_webdataset, (pipeline, ))
+        self._write_common(total_len, todos, worker_job_webdataset, (pipeline,))
 
-
-    def finalize(self, allocations) :
+    def finalize(self, allocations):
         # Writing metadata
         with open(self.fname, 'r+b') as fp:
             fp.seek(self.metadata_start)

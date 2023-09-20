@@ -36,6 +36,7 @@ class BytesDecoder(Operation):
 
         return decoder
 
+
 class BytesField(Field):
     """
     A subclass of :class:`~ffcv.fields.Field` supporting variable-length byte

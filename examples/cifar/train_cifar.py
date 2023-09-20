@@ -62,6 +62,7 @@ Section('data', 'data related stuff').params(
     val_dataset=Param(str, '.dat file to use for validation', required=True),
 )
 
+
 @param('data.train_dataset')
 @param('data.val_dataset')
 @param('training.batch_size')
@@ -94,7 +95,7 @@ def make_dataloaders(train_dataset=None, val_dataset=None, batch_size=None, num_
             Convert(ch.float16),
             torchvision.transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
         ])
-        
+
         ordering = OrderOption.RANDOM if name == 'train' else OrderOption.SEQUENTIAL
 
         loaders[name] = Loader(paths[name], batch_size=batch_size, num_workers=num_workers,
@@ -103,29 +104,36 @@ def make_dataloaders(train_dataset=None, val_dataset=None, batch_size=None, num_
 
     return loaders, start_time
 
+
 # Model (from KakaoBrain: https://github.com/wbaek/torchskeleton)
 class Mul(ch.nn.Module):
     def __init__(self, weight):
-       super(Mul, self).__init__()
-       self.weight = weight
+        super(Mul, self).__init__()
+        self.weight = weight
+
     def forward(self, x): return x * self.weight
+
 
 class Flatten(ch.nn.Module):
     def forward(self, x): return x.view(x.size(0), -1)
+
 
 class Residual(ch.nn.Module):
     def __init__(self, module):
         super(Residual, self).__init__()
         self.module = module
+
     def forward(self, x): return x + self.module(x)
+
 
 def conv_bn(channels_in, channels_out, kernel_size=3, stride=1, padding=1, groups=1):
     return ch.nn.Sequential(
-            ch.nn.Conv2d(channels_in, channels_out, kernel_size=kernel_size,
-                         stride=stride, padding=padding, groups=groups, bias=False),
-            ch.nn.BatchNorm2d(channels_out),
-            ch.nn.ReLU(inplace=True)
+        ch.nn.Conv2d(channels_in, channels_out, kernel_size=kernel_size,
+                     stride=stride, padding=padding, groups=groups, bias=False),
+        ch.nn.BatchNorm2d(channels_out),
+        ch.nn.ReLU(inplace=True)
     )
+
 
 def construct_model():
     num_class = 10
@@ -145,6 +153,7 @@ def construct_model():
     model = model.to(memory_format=ch.channels_last).cuda()
     return model
 
+
 @param('training.lr')
 @param('training.epochs')
 @param('training.momentum')
@@ -156,7 +165,7 @@ def train(model, loaders, lr=None, epochs=None, label_smoothing=None,
     opt = SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
     iters_per_epoch = len(loaders['train'])
     # Cyclic LR with single triangle
-    lr_schedule = np.interp(np.arange((epochs+1) * iters_per_epoch),
+    lr_schedule = np.interp(np.arange((epochs + 1) * iters_per_epoch),
                             [0, lr_peak_epoch * iters_per_epoch, epochs * iters_per_epoch],
                             [0, 1, 0])
     scheduler = lr_scheduler.LambdaLR(opt, lr_schedule.__getitem__)
@@ -175,6 +184,7 @@ def train(model, loaders, lr=None, epochs=None, label_smoothing=None,
             scaler.update()
             scheduler.step()
 
+
 @param('training.lr_tta')
 def evaluate(model, loaders, lr_tta=False):
     model.eval()
@@ -189,6 +199,7 @@ def evaluate(model, loaders, lr_tta=False):
                     total_correct += out.argmax(1).eq(labs).sum().cpu().item()
                     total_num += ims.shape[0]
             print(f'{name} accuracy: {total_correct / total_num * 100:.1f}%')
+
 
 if __name__ == "__main__":
     config = get_current_config()

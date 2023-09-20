@@ -213,7 +213,7 @@ class ResizedCropRGBImageDecoder(SimpleRGBImageDecoder, metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def get_crop_generator():
+    def get_crop_generator(self):
         raise NotImplementedError
 
 
