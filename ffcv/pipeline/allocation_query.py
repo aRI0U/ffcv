@@ -17,6 +17,7 @@ Allocation = Union[AllocationQuery, Sequence[AllocationQuery]]
 def allocate_query(memory_allocation: AllocationQuery, batch_size: int, batches_ahead: int):
     # We compute the total amount of memory needed for this
     # operation
+    print(memory_allocation, batch_size, batches_ahead)
     final_shape = [batches_ahead,
                    batch_size, *memory_allocation.shape]
     if isinstance(memory_allocation.dtype, ch.dtype):

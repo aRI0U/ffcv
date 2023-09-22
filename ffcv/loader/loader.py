@@ -131,6 +131,7 @@ class Loader:
         self.batch_size: int = batch_size
         self.batches_ahead = batches_ahead
         self.seed: int = seed
+        print(fname, custom_fields)
         self.reader: Reader = Reader(self.fname, custom_fields)
         self.num_workers: int = num_workers
         self.drop_last: bool = drop_last
