@@ -1,6 +1,7 @@
 from dataclasses import replace
 from typing import Optional, Tuple, Type, Callable
 
+import json
 import numpy as np
 
 from .base import Field, ARG_TYPE
@@ -22,10 +23,10 @@ class SpectrogramDecoder(Operation):
         self.itemsize = 4  # TODO: make it robust to different dtypes
 
     def declare_state_and_memory(self, previous_state: State) -> Tuple[State, Optional[AllocationQuery]]:
-        chans = self.metadata['chans'].max()  # if chans != 1 maybe everything will break
+        chans = self.metadata['chans'].max()
         freqs = self.metadata['freqs'].max()
 
-        output_shape = (self.timesteps, freqs, chans)
+        output_shape = (chans, freqs, self.timesteps)
 
         self.n_elements = np.prod(output_shape)
         self.elems_per_frame = int(chans * freqs)
@@ -39,8 +40,9 @@ class SpectrogramDecoder(Operation):
         mem_read = self.memory_read
         my_memcpy = Compiler.compile(memcpy)
         my_range = Compiler.get_iterator()
+        it_size = self.itemsize
+        elems = self.elems_per_frame
         n_frames = self.timesteps
-        it_size = self.itemsize * self.elems_per_frame
 
         def decoder(batch_indices, destination, metadata, storage_state):
             for dest_ix in my_range(batch_indices.shape[0]):
@@ -48,12 +50,13 @@ class SpectrogramDecoder(Operation):
 
                 # read data in memory
                 data = mem_read(metadata[source_ix]['ptr'], storage_state)
+                data = data.reshape(elems, -1)
 
                 # define random index and crop data
-                rd_idx = np.random.randint(data.shape[0] // it_size - n_frames)
-                my_memcpy(data[it_size * rd_idx: it_size * (rd_idx + n_frames)],
+                rd_idx = np.random.randint(data.shape[1] // it_size - n_frames)
+                my_memcpy(np.ascontiguousarray(data[:, it_size*rd_idx: it_size*(rd_idx + n_frames)]),
                           destination[dest_ix])
-            return np.ascontiguousarray(np.transpose(destination, (0, 3, 2, 1)))
+            return destination
 
         return decoder
 
@@ -90,9 +93,7 @@ class SpectrogramField(Field):
             field = field.squeeze(0)
         chans, freqs, steps = field.shape
         ptr, buffer = malloc(field.nbytes)
-
-        # time, freq, channels
-        buffer[:] = np.transpose(field, axes=(2, 1, 0)).reshape(-1).view('<u1')
+        buffer[:] = field.reshape(-1).view('<u1')
         destination['ptr'] = ptr
         destination['chans'] = chans
         destination['freqs'] = freqs

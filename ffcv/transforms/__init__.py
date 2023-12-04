@@ -5,14 +5,14 @@ from .common import Squeeze
 from .random_resized_crop import RandomResizedCrop
 from .poisoning import Poison
 from .replace_label import ReplaceLabel
-from .normalize import NormalizeImage
+from .normalize import Normalize, NormalizeImage
 from .translate import RandomTranslate
 from .mixup import ImageMixup, LabelMixup, MixupToOneHot
 from .module import ModuleWrapper
 from .color_jitter import RandomBrightness, RandomContrast, RandomSaturation
 
 __all__ = ['ToTensor', 'ToDevice',
-           'ToTorchImage', 'NormalizeImage',
+           'ToTorchImage', 'Normalize', 'NormalizeImage',
            'Convert',  'Squeeze', 'View',
            'RandomResizedCrop', 'RandomHorizontalFlip', 'RandomTranslate',
            'Cutout', 'ImageMixup', 'LabelMixup', 'MixupToOneHot',

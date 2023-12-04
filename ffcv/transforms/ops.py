@@ -47,7 +47,7 @@ class ToDevice(Operation):
         self.non_blocking = non_blocking
 
     def generate_code(self) -> Callable:
-        def to_device(inp, dst):
+        def to_device(inp: ch.Tensor, dst: ch.Tensor) -> ch.Tensor:
             if len(inp.shape) == 4:
                 if inp.is_contiguous(memory_format=ch.channels_last):
                     dst = dst.reshape(inp.shape[0], inp.shape[2], inp.shape[3], inp.shape[1])
