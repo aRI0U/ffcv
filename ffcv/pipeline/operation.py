@@ -14,12 +14,12 @@ if TYPE_CHECKING:
 class Operation(ABC):
 
     def __init__(self):
-        self.metadata: np.ndarray = None
-        self.memory_read: Callable[[np.uint64], np.ndarray] = None
-        pass
+        self.metadata: np.ndarray | None = None
+        self.memory_read: Callable[[np.uint64], np.ndarray] | None = None
+        self.field = None
 
     def accept_field(self, field: 'Field'):
-        self.field: 'Field' = field
+        self.field = field
 
     def accept_globals(self, metadata, memory_read):
         self.metadata = metadata
