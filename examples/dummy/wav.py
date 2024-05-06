@@ -1,3 +1,5 @@
+import glob
+import os
 import random
 import time
 from tqdm import trange
@@ -5,35 +7,37 @@ from tqdm import trange
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
+import torchaudio
 
 from ffcv.fields import IntField
 from ffcv.fields.decoders import IntDecoder
-from ffcv.fields.spectrogram import SpectrogramField, SpectrogramDecoder
+from ffcv.fields.waveform import WaveformField, WaveformDecoder
 from ffcv.loader import Loader, OrderOption
 from ffcv.transforms import ToTensor, ToDevice
 from ffcv.writer import DatasetWriter
 
 
 class DummyDataset(Dataset):
-    def __init__(self, tensors):
-        self.tensors = [t.numpy() for t in tensors]
+    def __init__(self, path):
+        self.paths = sorted(glob.glob(f"{path}/**/*.wav", recursive=True))
 
     def __len__(self):
-        return len(self.tensors)
+        return len(self.paths)
 
     def __getitem__(self, idx):
-        return self.tensors[idx], idx % 10
+        x, sr = torchaudio.load(self.paths[idx])
+        return x.numpy(), idx % 10
 
 
 class DummyCNN(nn.Module):
     def __init__(self, chans: int = 1, num_classes: int = 10):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(chans, num_classes // 2, kernel_size=3, padding=0),
+            nn.Conv1d(chans, num_classes // 2, kernel_size=3, padding=0),
             nn.ReLU(),
-            nn.Conv2d(num_classes // 2, num_classes // 2, kernel_size=3, padding=0),
+            nn.Conv1d(num_classes // 2, num_classes // 2, kernel_size=3, padding=0),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d(1),
+            nn.AdaptiveAvgPool1d(1),
             nn.Flatten(),
             nn.Linear(num_classes // 2, num_classes),
             nn.Softmax(dim=1)
@@ -43,29 +47,32 @@ class DummyCNN(nn.Module):
         return self.net(x)
 
 
-def build_dataset(n_elems, h, w):
-    height = torch.arange(h, dtype=torch.float32).view(1, h, 1) / 10
+def build_dataset(n_elems, h, w, sr=16000):
+    height = torch.arange(h, dtype=torch.float32).view(h, 1)
 
-    tensors = []
+    os.makedirs("tmp", exist_ok=True)
+
     for i in range(n_elems):
-        width = torch.arange(random.randint(w, 2*w), dtype=torch.float32).view(1, 1, -1) / 100
-        tensors.append(height + width + i)
+        width = torch.arange(random.randint(int(sr * w), int(2 * sr *w)), dtype=torch.float32).view(1, -1)
+        # width = torch.arange(random.randint(w, 2 * w), dtype=torch.float32).view(1, -1)
+        tensor = height / 100 + width / 1000 + i / 10
+        torchaudio.save(f"tmp/{i}.wav", tensor, sr)
 
-    return DummyDataset(tensors)
+    return DummyDataset("tmp")
 
 
 def to_beton(dataset, path):
-    writer = DatasetWriter(path, {"audio": SpectrogramField(), "label": IntField()})
+    writer = DatasetWriter(path, {"audio": WaveformField(), "label": IntField()})
     writer.from_indexed_dataset(dataset)
 
 
 def build_loader(path, device, timesteps=50, batch_size=2, num_workers=0):
     fields = {
-        "audio": SpectrogramField,
+        "audio": WaveformField,
         "label": IntField
     }
     pipelines = {
-        "audio": [SpectrogramDecoder(timesteps), ToTensor(), ToDevice(device, non_blocking=True)],
+        "audio": [WaveformDecoder(timesteps, num_channels=channels), ToTensor(), ToDevice(device, non_blocking=True)],
         "label": [IntDecoder(), ToTensor(), ToDevice(device, non_blocking=True)],
     }
 
@@ -84,16 +91,16 @@ if __name__ == '__main__':
     debug = True
 
     dataset_path = "tmp.beton"
-    channels = 1
+    channels = 2
     num_classes = 10
 
     if debug:
-        kwargs = dict(timesteps=7, batch_size=3, num_workers=0)
-        ds = build_dataset(6, 5, 11)
+        kwargs = dict(timesteps=8, batch_size=3, num_workers=0)
+        ds = build_dataset(4, channels, 11)
 
     else:
         kwargs = dict(timesteps=51, batch_size=256, num_workers=8)
-        ds = build_dataset(1000, 83, 267)
+        ds = build_dataset(1000, channels, 6)
 
     to_beton(ds, dataset_path)
 
@@ -113,7 +120,7 @@ if __name__ == '__main__':
 
     t0 = time.time()
 
-    pbar = trange(100, leave=True)
+    pbar = trange(1 if debug else 100, leave=True)
     for _ in pbar:
         for x, y in loader:
             optimizer.zero_grad()

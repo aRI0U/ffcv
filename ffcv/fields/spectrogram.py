@@ -1,7 +1,6 @@
 from dataclasses import replace
 from typing import Optional, Tuple, Type, Callable
 
-import json
 import numpy as np
 
 from .base import Field, ARG_TYPE
@@ -53,6 +52,7 @@ class SpectrogramDecoder(Operation):
                 data = data.reshape(elems, -1)
 
                 # define random index and crop data
+                # WARNING: this is probably dangerous
                 rd_idx = np.random.randint(data.shape[1] // it_size - n_frames + 1)
                 my_memcpy(np.ascontiguousarray(data[:, it_size*rd_idx: it_size*(rd_idx + n_frames)]),
                           destination[dest_ix])
