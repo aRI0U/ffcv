@@ -90,7 +90,7 @@ if platform.system() == 'Windows':
     extension_kwargs = pkgconfig_windows('pthread', extension_kwargs)
 else:
     try:
-        extension_kwargs = pkgconfig('opencv4', extension_kwargs)
+        pass  # extension_kwargs = pkgconfig('opencv4', extension_kwargs)
     except RuntimeError:
         extension_kwargs = pkgconfig('opencv', extension_kwargs)
     extension_kwargs = pkgconfig('libturbojpeg', extension_kwargs)

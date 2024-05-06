@@ -1,3 +1,5 @@
+import warnings
+
 import ctypes
 from numba import njit
 import numpy as np
@@ -19,8 +21,13 @@ def read(fileno:int, destination:np.ndarray, offset:int):
     return read_c(fileno, destination.ctypes.data, destination.size, offset)
 
 
-ctypes_resize = lib.resize
-ctypes_resize.argtypes = 11 * [c_int64]
+try:
+    ctypes_resize = lib.resize
+    ctypes_resize.argtypes = 11 * [c_int64]
+except AttributeError:
+    warnings.warn("There was an issue in libffcv compilation, probably due to missing opencv")
+    def ctypes_resize(*args, **kwargs):
+        raise NotImplementedError("Without opencv this function is not implemented")
 
 def resize_crop(source, start_row, end_row, start_col, end_col, destination):
     ctypes_resize(0,
