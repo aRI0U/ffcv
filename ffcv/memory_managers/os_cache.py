@@ -17,7 +17,7 @@ class OSCacheContext(MemoryContext):
 
     @property
     def state(self):
-        return (self.mmap, self.manager.ptrs, self.manager.sizes)
+        return self.mmap, self.manager.ptrs, self.manager.sizes
 
     def __enter__(self):
         res = super().__enter__()

@@ -12,29 +12,30 @@ from ..libffcv import memcpy
 
 
 class WaveformDecoder(Operation):
-    def __init__(self, chunk_size: int, num_channels: int = 1):
+    def __init__(self, chunk_size: int, num_channels: int = 1, dtype: str = '<f4'):
         super().__init__()
         self.chunk_size = chunk_size
         self.num_channels = num_channels
         self.output_shape = (num_channels, chunk_size)
-
-        # placeholders
-        self.n_elements = None
-        self.itemsize = 4  # TODO: make it robust to different dtypes
+        self.dtype = dtype
 
     def declare_state_and_memory(self, previous_state: State) -> Tuple[State, Optional[AllocationQuery]]:
+        dtype = np.dtype(self.dtype)
         return (
-            replace(previous_state, jit_mode=True, shape=self.output_shape, dtype=self.field.dtype),
-            AllocationQuery(self.output_shape, self.field.dtype)
+            replace(previous_state, jit_mode=True, shape=self.output_shape, dtype=dtype),
+            AllocationQuery(self.output_shape, dtype)
         )
 
     def generate_code(self) -> Callable:
         mem_read = self.memory_read
         my_memcpy = Compiler.compile(memcpy)
         my_range = Compiler.get_iterator()
-        it_size = self.itemsize
+
         chans = self.num_channels
         n_frames = self.chunk_size
+        dtype = self.dtype
+        # print(dtype)
+        it_size = int(dtype[-1])
 
         def decoder(batch_indices, destination, metadata, storage_state):
             for dest_ix in my_range(batch_indices.shape[0]):
@@ -45,15 +46,16 @@ class WaveformDecoder(Operation):
                 data = data.reshape(chans, -1)
 
                 # define random index and crop data
-                rd_idx = np.random.randint((data.shape[1] - n_frames) // it_size)
+                rd_idx = np.random.randint(data.shape[1] // it_size - n_frames + 1)
                 my_memcpy(np.ascontiguousarray(data[:, it_size*rd_idx: it_size*(rd_idx + n_frames)]),
                           destination[dest_ix])
+
             return destination
 
         return decoder
 
 class WaveformField(Field):
-    def __init__(self, dtype: np.dtype = np.float32, num_channels: int = 1):
+    def __init__(self, dtype: np.dtype = '<f4', num_channels: int = 1):
         self.dtype = dtype
         self.num_channels = num_channels
 
