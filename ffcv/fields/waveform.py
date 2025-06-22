@@ -55,9 +55,10 @@ class WaveformDecoder(Operation):
         return decoder
 
 class WaveformField(Field):
-    def __init__(self, dtype: np.dtype = '<f4', num_channels: int = 1):
+    def __init__(self, dtype: np.dtype = '<f4', num_channels: int = 1, max_size: int = -1):
         self.dtype = dtype
         self.num_channels = num_channels
+        self.max_size = max_size if max_size > 0 else float("inf")
 
     @property
     def metadata_type(self) -> np.dtype:
@@ -76,9 +77,15 @@ class WaveformField(Field):
 
     def encode(self, destination, field, malloc):
         chans, samples = field.shape
-        ptr, buffer = malloc(field.nbytes)
+        if field.nbytes > self.max_size:
+            print("Too big audio, truncating")
+            ptr, buffer = malloc(self.max_size)
+            buffer[:] = field.reshape(-1).view('<u1')[:self.max_size]
 
-        buffer[:] = field.reshape(-1).view('<u1')
+        else:
+            ptr, buffer = malloc(field.nbytes)
+            buffer[:] = field.reshape(-1).view('<u1')
+        
         destination['ptr'] = ptr
         destination['chans'] = chans
         destination['samples'] = samples

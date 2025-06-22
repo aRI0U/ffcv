@@ -68,21 +68,26 @@ def pkgconfig_windows(package, kw):
 
 def pkgconfig(package, kw):
     flag_map = {'-I': 'include_dirs', '-L': 'library_dirs', '-l': 'libraries'}
-    output = subprocess.getoutput(
-        'pkg-config --cflags --libs {}'.format(package))
+    cmd = 'pkg-config --cflags --libs {}'.format(package)
+    print(cmd)
+    output = subprocess.getoutput(cmd)
+    # raise IndexError(output)
     if 'not found' in output:
-        raise RuntimeError(f"Could not find required package: {package}.")
+        raise RuntimeError(f"Could not find required package: {package}.\nFull error message: {output}.")
     for token in output.strip().split():
         kw.setdefault(flag_map.get(token[:2]), []).append(token[2:])
     return kw
 
 
-sources = ['./libffcv/libffcv.cpp']
+extension_kwargs = {'include_dirs': [], "library_dirs": []}
 
-extension_kwargs = {
-    'sources': sources,
-    'include_dirs': []
-}
+if False:  # use custom glibc
+    os.environ["LD_LIBRARY_PATH"] = "/home/ia017140/glibc/install/lib:/home/ia017140/miniconda3/envs/ar/lib/:" + os.environ.get("LD_LIBRARY_PATH", "")
+    os.environ["LD_PRELOAD"] = "/home/ia017140/glibc/install/lib/libc.so.6"
+    extension_kwargs["library_dirs"].append("/home/ia017140/glibc/install/lib")
+    extension_kwargs["runtime_library_dirs"] = ["/home/ia017140/glibc/install/lib"]
+    # extension_kwargs["libraries"].append("c")
+
 if platform.system() == 'Windows':
     extension_kwargs = pkgconfig_windows('opencv4', extension_kwargs)
     extension_kwargs = pkgconfig_windows('libturbojpeg', extension_kwargs)
@@ -95,11 +100,19 @@ else:
         extension_kwargs = pkgconfig('opencv', extension_kwargs)
     extension_kwargs = pkgconfig('libturbojpeg', extension_kwargs)
 
+    # raise IndexError(str(extension_kwargs))
+
     extension_kwargs['libraries'].append('pthread')
+    # extension_kwargs = pkgconfig('pthread', extension_kwargs)
 
 
 libffcv = Extension('ffcv._libffcv',
-                        **extension_kwargs)
+                    sources=["./libffcv/libffcv.cpp"],
+                    # extra_compile_args=["-static-libgcc", "-static-libstdc++", "-static"],
+                    extra_objects=["./libffcv/libffcv.a"],
+                    language="c++",
+                    # extra_compile_args=["-pthread"],
+                    **extension_kwargs)
 
 setup(name='ffcv',
       version='1.0.1',

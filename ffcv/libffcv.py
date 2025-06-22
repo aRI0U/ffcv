@@ -11,7 +11,7 @@ lib = CDLL(ffcv._libffcv.__file__)
 if platform.system() == "Windows":
     libc = cdll.msvcrt
     read_c = libc._read
-else:
+else:  # WARNING: dirty workaround, should be libc.so.6
     libc = cdll.LoadLibrary('libc.so.6')
     read_c = libc.pread
 
@@ -38,7 +38,12 @@ def resize_crop(source, start_row, end_row, start_col, end_col, destination):
                   destination.shape[0], destination.shape[1])
 
 # Extract and define the interface of imdeocde
-ctypes_imdecode = lib.imdecode
+try:
+    ctypes_imdecode = lib.imdecode
+except AttributeError:
+    def ctypes_imdecode(*args, **kwargs):
+        raise NotImplementedError("Without libturbojpeg this function is not implemented")
+
 ctypes_imdecode.argtypes = [
     c_void_p, c_uint64, c_uint32, c_uint32, c_void_p, c_uint32, c_uint32,
     c_uint32, c_uint32, c_uint32, c_uint32, c_bool, c_bool
